@@ -7,7 +7,6 @@
 
 import Foundation
 import Alamofire
-import Combine
 
 public enum NetworkError: Error {
     case invalidURL
@@ -60,7 +59,7 @@ public struct mediaObject {
     }
 }
  
-public class APIManager {
+public class DiffAPIManager {
     
     public class func makeAsyncRequest<T:Codable>(url: String, method: HTTPMethod, parameter: [String:Any]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T,Error> {
         
@@ -289,7 +288,7 @@ public class APIManager {
 }
 
 //MARK: - Without genric
-extension APIManager {
+extension DiffAPIManager {
     
     public class func makeAsyncRequest(url: String, method: HTTPMethod, parameter: [String:Any]?,headers: [String: String] = [:],timeoutInterval: TimeInterval = 30) async -> Result<Any,Error> {
         
@@ -520,7 +519,8 @@ extension APIManager {
 
 
 //MARK: - Error handling
-extension APIManager {
+extension DiffAPIManager {
+    
     private class func handleAFError(_ error: AFError, response: AFDataResponse<Data>, continuation: CheckedContinuation<Result<Any, Error>, Error>) {
         print("Request failed: \(error.localizedDescription)")
         if error.isSessionTaskError || error.isExplicitlyCancelledError {
@@ -552,7 +552,7 @@ extension APIManager {
 
 
 //MARK: - Create urlRequest
-extension APIManager {
+extension DiffAPIManager {
     
     private class func createURLRequest(url: String, method: HTTPMethod, headers: [String: String], timeoutInterval: TimeInterval) -> Result<URLRequest, Error> {
         guard let validURL = URL(string: url) else {

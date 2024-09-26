@@ -48,8 +48,8 @@ extension ContentViewViewModel {
             let todoUrl = apiUrl.todos.route
             
             let (userData, todoData) = await (
-                APIManager.makeAsyncRequest(url: userUrl, method: .get, parameter: nil, type: [userModel].self),
-                APIManager.makeAsyncRequest(url: todoUrl, method: .get, parameter: nil, type: [toDoModel].self)
+                DiffAPIManager.makeAsyncRequest(url: userUrl, method: .get, parameter: nil, type: [userModel].self),
+                DiffAPIManager.makeAsyncRequest(url: todoUrl, method: .get, parameter: nil, type: [toDoModel].self)
             )
             
             switch userData {
@@ -81,7 +81,7 @@ extension ContentViewViewModel {
                 self.isShowLoader = false
             }
     
-            let brandResponse = await APIManager.makeAsyncRequest(url: apiUrl.brand.route, method: .get, parameter: nil, type: [brandModel].self)
+            let brandResponse = await DiffAPIManager.makeAsyncRequest(url: apiUrl.brand.route, method: .get, parameter: nil, type: [brandModel].self)
             
             switch brandResponse {
             case .success(let success):
