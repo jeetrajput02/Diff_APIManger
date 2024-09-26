@@ -137,7 +137,6 @@ public class APIManager {
         
     }
     
-    // progressHandler: @escaping (Double) -> Void
     public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: @escaping (Double) -> Void) async -> Result<T, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
