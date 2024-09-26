@@ -62,28 +62,17 @@ public struct mediaObject {
  
 public class APIManager {
     
-
-    public class func makeAsyncRequest<T:Codable>(url: String, method: HTTPMethod, parameter: [String:Any]?,timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T,Error> {
+    public class func makeAsyncRequest<T:Codable>(url: String, method: HTTPMethod, parameter: [String:Any]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T,Error> {
         
-        if NetworkManager.shared.isInternetAvailable() {
-            
-            let headers:[String:String] = [:]
-            let httpHeader = HTTPHeaders(headers)
-            guard let validURL = URL(string: url) else {
-                return .failure(NetworkError.invalidURL)
-            }
-            
-            var urlRequest: URLRequest
-            do {
-                urlRequest = try URLRequest(url: validURL, method: method, headers: httpHeader)
-                urlRequest.timeoutInterval = timeoutInterval
-            } catch {
-                return .failure(NetworkError.unknown)
-            }
-            
+        guard !NetworkManager.shared.isInternetAvailable() else {
+            return .failure(NetworkError.noInternet)
+        }
+        
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
+        case .success(let urlRequest):
             do {
                 return try await withCheckedThrowingContinuation { continuation in
-                  
+                    
                     AF.request(urlRequest)
                         .responseData(queue: .global(qos: .background)) { response in
                             
@@ -92,11 +81,11 @@ public class APIManager {
                             case .success(let responseData):
                                 do {
                                     
+                                    print(responseData.prettyPrintedJSONString ?? "")
                                     guard let httpResponse = response.response else {
                                         continuation.resume(returning: .failure(NetworkError.unknown))
                                         return
                                     }
-                                    print(responseData.prettyPrintedJSONString ?? "")
                                     if httpResponse.statusCode == 200 {
                                         let data = try JSONDecoder().decode(T.self, from: responseData)
                                         continuation.resume(returning: .success(data))
@@ -108,6 +97,235 @@ public class APIManager {
                                     
                                 } catch {
                                     print(error.localizedDescription)
+                                    continuation.resume(returning: .failure(NetworkError.unknown))
+                                }
+                                
+                            case .failure(let error):
+                                print(error.localizedDescription)
+                                if let afError = error.asAFError {
+                                    if afError.isSessionTaskError || afError.isExplicitlyCancelledError {
+                                        
+                                        print("Request timed out.")
+                                        continuation.resume(returning: .failure(NetworkError.timeout))
+                                    } else {
+                                        // Handle other AFErrors
+                                        if let responseData = response.data {
+                                            print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
+                                        }
+                                        continuation.resume(returning: .failure(NetworkError.invalidURL))
+                                    }
+                                } else {
+                                    // Handle non-AFError cases
+                                    if let responseData = response.data {
+                                        print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
+                                    }
+                                    continuation.resume(returning: .failure(error))
+                                }
+                            }
+                            
+                        }
+                }
+                
+            } catch {
+                print(error.localizedDescription)
+                return .failure(NetworkError.unknown)
+                
+            }
+        case .failure(let error):
+            return .failure(error)
+        }
+        
+    }
+    
+    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
+        
+        guard !NetworkManager.shared.isInternetAvailable() else {
+            return .failure(NetworkError.noInternet)
+        }
+    
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
+            
+        case .success(let urlRequest):
+
+             do {
+                 return try await withCheckedThrowingContinuation { continuation in
+                     
+                     AF.upload(multipartFormData: { multipartFormData in
+                         
+                         // Append parameters
+                         if let params = parameter {
+                             for (key, value) in params {
+                                 if let val = value as? String, let data = val.data(using: .utf8) {
+                                     multipartFormData.append(data, withName: key)
+                                 }
+                             }
+                         }
+                         
+                         // Append media objects
+                         if let mediaObjects = mediaObj {
+                             for (key, media) in mediaObjects {
+                                 multipartFormData.append(media.data, withName: key, fileName: media.filename, mimeType: media.mimeType)
+                             }
+                         }
+                         
+                     }, with: urlRequest)
+                     .uploadProgress { progress in
+                         print("Upload Progress: \(progress.fractionCompleted)")
+                     }
+                     .responseData(queue: .global(qos: .background)) { response in
+                         
+                         switch response.result {
+                             
+                         case .success(let responseData):
+                             do {
+                                 print(responseData.prettyPrintedJSONString ?? "")
+                                 guard let httpResponse = response.response else {
+                                     continuation.resume(returning: .failure(NetworkError.unknown))
+                                     return
+                                 }
+                                 if httpResponse.statusCode == 200 {
+                                     let decodedData = try JSONDecoder().decode(T.self, from: responseData)
+                                     continuation.resume(returning: .success(decodedData))
+                                 } else if httpResponse.statusCode == 401 {
+                                     continuation.resume(returning: .failure(NetworkError.authentication))
+                                 } else {
+                                     continuation.resume(returning: .failure(NetworkError.responseError))
+                                 }
+                             } catch {
+                                 continuation.resume(returning: .failure(NetworkError.unknown))
+                             }
+                             
+                         case .failure(let error):
+                             handleAFError(error, response: response, continuation: continuation)
+                         }
+                     }
+                 }
+             } catch {
+                 return .failure(NetworkError.unknown)
+             }
+             
+        case .failure(let error):
+            return .failure(error)
+        }
+        
+        
+        
+    }
+
+    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
+        
+        guard !NetworkManager.shared.isInternetAvailable() else {
+            return .failure(NetworkError.noInternet)
+        }
+        
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
+            
+        case .success(let urlRequest):
+            do {
+                return try await withCheckedThrowingContinuation { continuation in
+                    
+                    AF.upload(multipartFormData: { multipartFormData in
+                        
+                        // Append parameters
+                        if let params = parameter {
+                            for (key, value) in params {
+                                if let val = value as? String, let data = val.data(using: .utf8) {
+                                    multipartFormData.append(data, withName: key)
+                                }
+                            }
+                        }
+                        
+                        // Append multiple media objects
+                        if let mediaObjects = mediaObjects {
+                            for (key, mediaArray) in mediaObjects {
+                                for media in mediaArray {
+                                    multipartFormData.append(media.data, withName: key, fileName: media.filename, mimeType: media.mimeType)
+                                }
+                            }
+                        }
+                        
+                    }, with: urlRequest)
+                    .uploadProgress { progress in
+                        print("Upload Progress: \(progress.fractionCompleted)")
+                    }
+                    .responseData(queue: .global(qos: .background)) { response in
+                        
+                        switch response.result {
+                            
+                        case .success(let responseData):
+                            do {
+                                print(responseData.prettyPrintedJSONString ?? "")
+                                guard let httpResponse = response.response else {
+                                    continuation.resume(returning: .failure(NetworkError.unknown))
+                                    return
+                                }
+                                if httpResponse.statusCode == 200 {
+                                    let decodedData = try JSONDecoder().decode(T.self, from: responseData)
+                                    continuation.resume(returning: .success(decodedData))
+                                } else if httpResponse.statusCode == 401 {
+                                    continuation.resume(returning: .failure(NetworkError.authentication))
+                                } else {
+                                    continuation.resume(returning: .failure(NetworkError.responseError))
+                                }
+                            } catch {
+                                continuation.resume(returning: .failure(NetworkError.unknown))
+                            }
+                            
+                        case .failure(let error):
+                            handleAFError(error, response: response, continuation: continuation)
+                        }
+                    }
+                }
+            } catch {
+                return .failure(NetworkError.unknown)
+            }
+        case .failure(let error):
+            return .failure(error)
+        }
+        
+    }
+
+    
+}
+
+//MARK: - Without genric
+extension APIManager {
+    
+    public class func makeAsyncRequest(url: String, method: HTTPMethod, parameter: [String:Any]?,headers: [String: String] = [:],timeoutInterval: TimeInterval = 30) async -> Result<Any,Error> {
+        
+        guard !NetworkManager.shared.isInternetAvailable() else {
+            return .failure(NetworkError.noInternet)
+        }
+        
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
+        case .success(let urlRequest):
+            do {
+                return try await withCheckedThrowingContinuation { continuation in
+                  
+                    AF.request(urlRequest)
+                        .responseData(queue: .global(qos: .background)) { response in
+                            
+                            switch response.result {
+                                
+                            case .success(let responseData):
+                                do {
+                                    print(responseData.prettyPrintedJSONString ?? "")
+                                    guard let httpResponse = response.response else {
+                                        continuation.resume(returning: .failure(NetworkError.unknown))
+                                        return
+                                    }
+                                    if httpResponse.statusCode == 200 {
+                                        let response = try JSONSerialization.jsonObject(with: responseData)
+                                        continuation.resume(returning: .success(response))
+                                        
+                                    } else if httpResponse.statusCode == 401 {
+                                        continuation.resume(returning: .failure(NetworkError.authentication))
+                                    } else {
+                                        continuation.resume(returning: .failure(NetworkError.responseError))
+                                    }
+                                    
+                                } catch {
+                                    print("Parsing error: \(error.localizedDescription)")
                                     continuation.resume(returning: .failure(NetworkError.unknown))
                                 }
                                 
@@ -142,37 +360,26 @@ public class APIManager {
                 return .failure(NetworkError.unknown)
                 
             }
-            
-        } else {
-            return .failure(NetworkError.noInternet)
+        case .failure(let error):
+            return .failure(error)
         }
+        
         
     }
     
-    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?,timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
+    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30) async -> Result<Any, Error> {
         
-        if NetworkManager.shared.isInternetAvailable() {
+        guard !NetworkManager.shared.isInternetAvailable() else {
+            return .failure(NetworkError.noInternet)
+        }
+        
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
             
-            let headers: [String: String] = [:]
-            let httpHeader = HTTPHeaders(headers)
-            
-            guard let validURL = URL(string: url) else {
-                return .failure(NetworkError.invalidURL)
-            }
-            
-
-            var urlRequest: URLRequest
-            do {
-                urlRequest = try URLRequest(url: validURL, method: method, headers: httpHeader)
-                urlRequest.timeoutInterval = timeoutInterval
-            } catch {
-                return .failure(NetworkError.unknown)
-            }
-            
+        case .success(let urlRequest):
             do {
                 return try await withCheckedThrowingContinuation { continuation in
                     
-                    // Perform the request using Alamofire's upload
+                    // Perform the upload
                     AF.upload(multipartFormData: { multipartFormData in
                         
                         // Append parameters
@@ -187,14 +394,11 @@ public class APIManager {
                         // Append media objects
                         if let mediaObjects = mediaObj {
                             for (key, media) in mediaObjects {
-                                multipartFormData.append(media.data,
-                                                         withName: key,
-                                                         fileName: media.filename,
-                                                         mimeType: media.mimeType)
+                                multipartFormData.append(media.data, withName: key, fileName: media.filename, mimeType: media.mimeType)
                             }
                         }
                         
-                    }, with: urlRequest)  // Use the URLRequest with the timeout
+                    }, with: urlRequest)
                     .uploadProgress { progress in
                         print("Upload Progress: \(progress.fractionCompleted)")
                     }
@@ -204,82 +408,54 @@ public class APIManager {
                             
                         case .success(let responseData):
                             do {
-                                // Decode the response data
+                                print(responseData.prettyPrintedJSONString ?? "")
                                 guard let httpResponse = response.response else {
                                     continuation.resume(returning: .failure(NetworkError.unknown))
                                     return
                                 }
-                                print(responseData.prettyPrintedJSONString ?? "")
                                 if httpResponse.statusCode == 200 {
-                                    let data = try JSONDecoder().decode(T.self, from: responseData)
-                                    continuation.resume(returning: .success(data))
+                                    let response = try JSONSerialization.jsonObject(with: responseData)
+                                    continuation.resume(returning: .success(response))
                                 } else if httpResponse.statusCode == 401 {
                                     continuation.resume(returning: .failure(NetworkError.authentication))
                                 } else {
                                     continuation.resume(returning: .failure(NetworkError.responseError))
                                 }
-                                
                             } catch {
-                                print("Decoding error: \(error.localizedDescription)")
                                 continuation.resume(returning: .failure(NetworkError.unknown))
                             }
                             
                         case .failure(let error):
-                            print("Request failed: \(error.localizedDescription)")
-                            if let afError = error.asAFError {
-                                if afError.isSessionTaskError || afError.isExplicitlyCancelledError {
-                                    // Handle timeout error
-                                    print("Request timed out.")
-                                    continuation.resume(returning: .failure(NetworkError.timeout))
-                                } else {
-                                    if let responseData = response.data {
-                                        print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
-                                    }
-                                    continuation.resume(returning: .failure(NetworkError.unknown))
-                                }
-                            } else {
-                                if let responseData = response.data {
-                                    print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
-                                }
-                                continuation.resume(returning: .failure(NetworkError.unknown))
-                            }
+                            handleAFError(error, response: response, continuation: continuation)
                         }
                     }
                 }
             } catch {
-                print("Upload failed: \(error.localizedDescription)")
                 return .failure(NetworkError.unknown)
             }
-        } else {
+        case .failure(let error):
+            return .failure(error)
+            
+        }
+        
+        
+    }
+
+    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30) async -> Result<Any, Error> {
+        
+        guard !NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
-    }
-    
-    public class func makeAsyncUploadMultipleFileRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
-        
-        if NetworkManager.shared.isInternetAvailable() {
+        switch createURLRequest(url: url, method: method, headers: headers, timeoutInterval: timeoutInterval) {
             
-            let headers: [String: String] = [:]
-            let httpHeader = HTTPHeaders(headers)
-            
-            guard let validURL = URL(string: url) else {
-                return .failure(NetworkError.invalidURL)
-            }
-            
-            var urlRequest: URLRequest
-            do {
-                urlRequest = try URLRequest(url: validURL, method: method, headers: httpHeader)
-                urlRequest.timeoutInterval = timeoutInterval
-            } catch {
-                return .failure(NetworkError.unknown)
-            }
-            
+        case .success(let urlRequest):
             do {
                 return try await withCheckedThrowingContinuation { continuation in
                     
                     AF.upload(multipartFormData: { multipartFormData in
                         
+                        // Append parameters
                         if let params = parameter {
                             for (key, value) in params {
                                 if let val = value as? String, let data = val.data(using: .utf8) {
@@ -288,13 +464,11 @@ public class APIManager {
                             }
                         }
                         
+                        // Append media objects
                         if let mediaObjects = mediaObjects {
                             for (key, mediaArray) in mediaObjects {
                                 for media in mediaArray {
-                                    multipartFormData.append(media.data,
-                                                             withName: key,
-                                                             fileName: media.filename,
-                                                             mimeType: media.mimeType)
+                                    multipartFormData.append(media.data, withName: key, fileName: media.filename, mimeType: media.mimeType)
                                 }
                             }
                         }
@@ -309,54 +483,91 @@ public class APIManager {
                             
                         case .success(let responseData):
                             do {
+                                print(responseData.prettyPrintedJSONString ?? "")
                                 guard let httpResponse = response.response else {
                                     continuation.resume(returning: .failure(NetworkError.unknown))
                                     return
                                 }
-                                print(responseData.prettyPrintedJSONString ?? "")
                                 if httpResponse.statusCode == 200 {
-                                    let data = try JSONDecoder().decode(T.self, from: responseData)
-                                    continuation.resume(returning: .success(data))
+                                    let response = try JSONSerialization.jsonObject(with: responseData)
+                                    continuation.resume(returning: .success(response))
                                 } else if httpResponse.statusCode == 401 {
                                     continuation.resume(returning: .failure(NetworkError.authentication))
                                 } else {
                                     continuation.resume(returning: .failure(NetworkError.responseError))
                                 }
-                                
                             } catch {
-                                print("Decoding error: \(error.localizedDescription)")
                                 continuation.resume(returning: .failure(NetworkError.unknown))
                             }
                             
                         case .failure(let error):
-                            print("Request failed: \(error.localizedDescription)")
-                            if let afError = error.asAFError {
-                                if afError.isSessionTaskError || afError.isExplicitlyCancelledError {
-                                    print("Request timed out.")
-                                    continuation.resume(returning: .failure(NetworkError.timeout))
-                                } else {
-                                    if let responseData = response.data {
-                                        print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
-                                    }
-                                    continuation.resume(returning: .failure(NetworkError.unknown))
-                                }
-                            } else {
-                                if let responseData = response.data {
-                                    print("Failure response: \(responseData.prettyPrintedJSONString ?? String(decoding: responseData, as: UTF8.self))")
-                                }
-                                continuation.resume(returning: .failure(NetworkError.unknown))
-                            }
+                            handleAFError(error, response: response, continuation: continuation)
                         }
                     }
                 }
             } catch {
-                print("Upload failed: \(error.localizedDescription)")
                 return .failure(NetworkError.unknown)
             }
+        case .failure(let error):
+            return .failure(error)
+            
+        }
+        
+    }
+
+    
+}
+
+
+//MARK: - Error handling
+extension APIManager {
+    private class func handleAFError(_ error: AFError, response: AFDataResponse<Data>, continuation: CheckedContinuation<Result<Any, Error>, Error>) {
+        print("Request failed: \(error.localizedDescription)")
+        if error.isSessionTaskError || error.isExplicitlyCancelledError {
+            print("Request timed out.")
+            continuation.resume(returning: .failure(NetworkError.timeout))
         } else {
-            return .failure(NetworkError.noInternet)
+            if let responseData = response.data, let errorString = String(data: responseData, encoding: .utf8) {
+                print("Error response: \(errorString)")
+            }
+            continuation.resume(returning: .failure(NetworkError.unknown))
+        }
+    }
+    
+    private class func handleAFError<T>(_ error: AFError, response: AFDataResponse<Data>, continuation: CheckedContinuation<Result<T, Error>, Error>) {
+        print("Request failed: \(error.localizedDescription)")
+        
+        if error.isSessionTaskError || error.isExplicitlyCancelledError {
+            print("Request timed out.")
+            continuation.resume(returning: .failure(NetworkError.timeout))
+        } else {
+            if let responseData = response.data, let errorString = String(data: responseData, encoding: .utf8) {
+                print("Error response: \(errorString)")
+            }
+            continuation.resume(returning: .failure(NetworkError.unknown))
+        }
+    }
+
+}
+
+
+//MARK: - Create urlRequest
+extension APIManager {
+    
+    private class func createURLRequest(url: String, method: HTTPMethod, headers: [String: String], timeoutInterval: TimeInterval) -> Result<URLRequest, Error> {
+        guard let validURL = URL(string: url) else {
+            return .failure(NetworkError.invalidURL)
+        }
+        
+        var urlRequest: URLRequest
+        do {
+            let httpHeader = HTTPHeaders(headers)
+            urlRequest = try URLRequest(url: validURL, method: method, headers: httpHeader)
+            urlRequest.timeoutInterval = timeoutInterval
+            return .success(urlRequest)
+        } catch {
+            return .failure(NetworkError.unknown)
         }
     }
     
 }
-
