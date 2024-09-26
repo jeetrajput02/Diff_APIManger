@@ -287,7 +287,7 @@ public class DiffAPIManager {
     
 }
 
-//MARK: - Without genric
+//MARK: - Without generic
 extension DiffAPIManager {
     
     public class func makeAsyncRequest(url: String, method: HTTPMethod, parameter: [String:Any]?,headers: [String: String] = [:],timeoutInterval: TimeInterval = 30) async -> Result<Any,Error> {
@@ -551,7 +551,7 @@ extension DiffAPIManager {
 }
 
 
-//MARK: - Create urlRequest
+//MARK: - Create URLRequest
 extension DiffAPIManager {
     
     private class func createURLRequest(url: String, method: HTTPMethod, headers: [String: String], timeoutInterval: TimeInterval) -> Result<URLRequest, Error> {

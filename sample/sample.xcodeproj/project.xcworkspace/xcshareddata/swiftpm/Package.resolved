@@ -1,0 +1,24 @@
+{
+  "originHash" : "17b2a3913287fc5af425c37dc259f7aea45c718f42f57062ab538ff7d494551e",
+  "pins" : [
+    {
+      "identity" : "alamofire",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Alamofire/Alamofire.git",
+      "state" : {
+        "revision" : "f455c2975872ccd2d9c81594c658af65716e9b9a",
+        "version" : "5.9.1"
+      }
+    },
+    {
+      "identity" : "diff_apimanger",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jeetrajput02/Diff_APIManger.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "a4d76f4dc5134a221e63f0a9a4ecd82d242782ec"
+      }
+    }
+  ],
+  "version" : 3
+}
