@@ -64,7 +64,7 @@ public class APIManager {
     
     public class func makeAsyncRequest<T:Codable>(url: String, method: HTTPMethod, parameter: [String:Any]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T,Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
@@ -139,7 +139,7 @@ public class APIManager {
     
     public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
     
@@ -214,7 +214,7 @@ public class APIManager {
 
     public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T, Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
@@ -293,7 +293,7 @@ extension APIManager {
     
     public class func makeAsyncRequest(url: String, method: HTTPMethod, parameter: [String:Any]?,headers: [String: String] = [:],timeoutInterval: TimeInterval = 30) async -> Result<Any,Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
@@ -369,7 +369,7 @@ extension APIManager {
     
     public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30) async -> Result<Any, Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
@@ -443,7 +443,7 @@ extension APIManager {
 
     public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30) async -> Result<Any, Error> {
         
-        guard !NetworkManager.shared.isInternetAvailable() else {
+        guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
         }
         
