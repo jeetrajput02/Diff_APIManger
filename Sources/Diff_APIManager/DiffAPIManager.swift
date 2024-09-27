@@ -136,7 +136,7 @@ public class DiffAPIManager {
         
     }
     
-    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: @escaping (Double) -> Void) async -> Result<T, Error> {
+    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: ((Double) -> Void)? = nil ) async -> Result<T, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
@@ -169,7 +169,7 @@ public class DiffAPIManager {
                          
                      }, with: urlRequest)
                      .uploadProgress { progress in
-                         progressHandler(progress.fractionCompleted)
+                         progressHandler?(progress.fractionCompleted)
                      }
                      .responseData(queue: .global(qos: .background)) { response in
                          
@@ -211,7 +211,7 @@ public class DiffAPIManager {
         
     }
 
-    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: @escaping (Double) -> Void) async -> Result<T, Error> {
+    public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: ((Double) -> Void)? = nil) async -> Result<T, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
@@ -245,7 +245,7 @@ public class DiffAPIManager {
                         
                     }, with: urlRequest)
                     .uploadProgress { progress in
-                        progressHandler(progress.fractionCompleted)
+                        progressHandler?(progress.fractionCompleted)
                     }
                     .responseData(queue: .global(qos: .background)) { response in
                         
@@ -366,7 +366,7 @@ extension DiffAPIManager {
         
     }
     
-    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: @escaping (Double) -> Void) async -> Result<Any, Error> {
+    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: ((Double) -> Void)? = nil) async -> Result<Any, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
@@ -399,7 +399,7 @@ extension DiffAPIManager {
                         
                     }, with: urlRequest)
                     .uploadProgress { progress in
-                        progressHandler(progress.fractionCompleted)
+                        progressHandler?(progress.fractionCompleted)
                     }
                     .responseData(queue: .global(qos: .background)) { response in
                         
@@ -440,7 +440,7 @@ extension DiffAPIManager {
         
     }
 
-    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: @escaping (Double) -> Void) async -> Result<Any, Error> {
+    public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: ((Double) -> Void)? = nil) async -> Result<Any, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
             return .failure(NetworkError.noInternet)
@@ -474,7 +474,7 @@ extension DiffAPIManager {
                         
                     }, with: urlRequest)
                     .uploadProgress { progress in
-                        progressHandler(progress.fractionCompleted)
+                        progressHandler?(progress.fractionCompleted)
                     }
                     .responseData(queue: .global(qos: .background)) { response in
                         
