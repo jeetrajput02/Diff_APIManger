@@ -50,7 +50,6 @@ public struct mediaObject {
     public var filename: String
     public var mimeType: String
 
-    // Add a public initializer
     public init(type: mediaType, data: Data, filename: String, mimeType: String) {
         self.type = type
         self.data = data
@@ -61,6 +60,19 @@ public struct mediaObject {
  
 public class DiffAPIManager {
     
+    /// Asynchronously makes an API request using a generic `Codable` type for the response.
+    ///
+    /// This method performs an HTTP request with the specified parameters, decodes the response into the specified `Codable` type,
+    /// and returns the result as a Swift `Result` type, which can either be success or failure.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., GET, POST).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    ///   - type: The type conforming to `Codable` that the response should be decoded into.
+    /// - Returns: An asynchronous result of type `Result<T, Error>`, where `T` is the specified `Codable` type. The result will either contain the decoded data on success, or an error on failure.
     public class func makeAsyncRequest<T:Codable>(url: String, method: HTTPMethod, parameter: [String:Any]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type) async -> Result<T,Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -136,6 +148,21 @@ public class DiffAPIManager {
         
     }
     
+    /// Asynchronously uploads a multipart form request with media and parameters, and decodes the response into a specified `Codable` type.
+    ///
+    /// This function performs an HTTP upload using multipart form data, allowing you to upload files (media) along with other parameters.
+    /// It also supports tracking the upload progress via a progress handler. The response is decoded into the specified `Codable` type.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., POST, PUT).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - mediaObj: A dictionary of media objects to upload, where the key is a string and the value is a `mediaObject` (which contains the data, filename, and MIME type).
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    ///   - type: The type conforming to `Codable` that the response should be decoded into.
+    ///   - progressHandler: A closure to handle progress updates, with the progress fraction passed as a `Double` (0.0 to 1.0). Optional.
+    /// - Returns: An asynchronous result of type `Result<T, Error>`, where `T` is the specified `Codable` type. The result will either contain the decoded data on success, or an error on failure.
     public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: ((Double) -> Void)? = nil ) async -> Result<T, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -211,6 +238,21 @@ public class DiffAPIManager {
         
     }
 
+    /// Asynchronously uploads a multipart form request with parameters and multiple media objects, and decodes the response into a specified `Codable` type.
+    ///
+    /// This function allows for the upload of files along with other parameters using a multipart form data request.
+    /// It tracks the upload progress via a closure and returns the response as a `Result` type, which can be either success or failure.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., POST, PUT).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - mediaObjects: A dictionary where the key is a string and the value is an array of `mediaObject` instances to upload.
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    ///   - type: The type conforming to `Codable` that the response should be decoded into.
+    ///   - progressHandler: A closure to handle progress updates, with the progress fraction passed as a `Double` (0.0 to 1.0). Optional.
+    /// - Returns: An asynchronous result of type `Result<T, Error>`, where `T` is the specified `Codable` type. The result will either contain the decoded data on success, or an error on failure.
     public class func makeAsyncUploadRequest<T: Codable>(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, type: T.Type, progressHandler: ((Double) -> Void)? = nil) async -> Result<T, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -284,12 +326,24 @@ public class DiffAPIManager {
         
     }
 
-    
 }
 
 //MARK: - Without generic
 extension DiffAPIManager {
     
+    /// Asynchronously performs an API request and returns the response as a generic result.
+    ///
+    /// This function sends an HTTP request to the specified URL using the provided HTTP method and parameters.
+    /// It returns a `Result` type containing either the JSON response on success or an error on failure.
+    /// The response is parsed into a generic `Any` type, which can be further cast to the desired type.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., GET, POST).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    /// - Returns: An asynchronous result of type `Result<Any, Error>`. The result will either contain the parsed response on success, or an error on failure.
     public class func makeAsyncRequest(url: String, method: HTTPMethod, parameter: [String:Any]?,headers: [String: String] = [:],timeoutInterval: TimeInterval = 30) async -> Result<Any,Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -366,6 +420,20 @@ extension DiffAPIManager {
         
     }
     
+    /// Asynchronously uploads a multipart form request with parameters and a single media object, returning the response as a result.
+    ///
+    /// This function allows for the upload of a file (media object) alongside additional parameters using a multipart form data request.
+    /// It provides a progress handler to monitor the upload progress and returns the server response in a `Result` type, which can be either success or failure.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., POST, PUT).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - mediaObj: A dictionary where the key is a string and the value is a `mediaObject` instance to upload.
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    ///   - progressHandler: A closure to handle progress updates, with the progress fraction passed as a `Double` (0.0 to 1.0). Optional.
+    /// - Returns: An asynchronous result of type `Result<Any, Error>`. The result will either contain the parsed response on success, or an error on failure.
     public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObj: [String: mediaObject]?, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: ((Double) -> Void)? = nil) async -> Result<Any, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -440,6 +508,20 @@ extension DiffAPIManager {
         
     }
 
+    /// Asynchronously uploads a multipart form request with parameters and multiple media objects, returning the response as a result.
+    ///
+    /// This function allows for the upload of files (media objects) alongside additional parameters using a multipart form data request.
+    /// It tracks the upload progress via a closure and returns the response in a `Result` type, which can be either success or failure.
+    ///
+    /// - Parameters:
+    ///   - url: The URL string for the API request.
+    ///   - method: The HTTP method to use for the request (e.g., POST, PUT).
+    ///   - parameter: The request parameters, provided as a dictionary of `[String: Any]`, optional.
+    ///   - mediaObjects: A dictionary where the key is a string and the value is an array of `mediaObject` instances to upload, optional.
+    ///   - headers: The HTTP headers to include in the request, provided as a dictionary of `[String: String]`. The default is an empty dictionary.
+    ///   - timeoutInterval: The timeout interval for the request in seconds. The default value is 30 seconds.
+    ///   - progressHandler: A closure to handle progress updates, with the progress fraction passed as a `Double` (0.0 to 1.0). Optional.
+    /// - Returns: An asynchronous result of type `Result<Any, Error>`. The result will either contain the parsed response on success, or an error on failure.
     public class func makeAsyncUploadRequest(url: String, method: HTTPMethod, parameter: [String: Any]?, mediaObjects: [String: [mediaObject]]? = nil, headers: [String: String] = [:], timeoutInterval: TimeInterval = 30, progressHandler: ((Double) -> Void)? = nil) async -> Result<Any, Error> {
         
         guard NetworkManager.shared.isInternetAvailable() else {
@@ -514,13 +596,21 @@ extension DiffAPIManager {
         
     }
 
-    
 }
 
 
 //MARK: - Error handling
 extension DiffAPIManager {
     
+    /// Handles errors returned by Alamofire during network requests.
+    ///
+    /// This function processes `AFError` instances and checks for specific error conditions, such as session task errors or explicit cancellations.
+    /// It extracts error information from the `AFDataResponse` and resumes the given continuation with an appropriate failure result.
+    ///
+    /// - Parameters:
+    ///   - error: The `AFError` instance representing the error that occurred during the request.
+    ///   - response: The `AFDataResponse<Data>` that contains the response data and metadata associated with the failed request.
+    ///   - continuation: A `CheckedContinuation<Result<Any, Error>, Error>` used to resume the asynchronous operation with the error result.
     private class func handleAFError(_ error: AFError, response: AFDataResponse<Data>, continuation: CheckedContinuation<Result<Any, Error>, Error>) {
         print("Request failed: \(error.localizedDescription)")
         if error.isSessionTaskError || error.isExplicitlyCancelledError {
@@ -534,6 +624,15 @@ extension DiffAPIManager {
         }
     }
     
+    /// Handles errors returned by Alamofire during network requests for a generic response type.
+    ///
+    /// This function processes `AFError` instances and checks for specific error conditions, such as session task errors or explicit cancellations.
+    /// It extracts error information from the `AFDataResponse` and resumes the given continuation with an appropriate failure result.
+    ///
+    /// - Parameters:
+    ///   - error: The `AFError` instance representing the error that occurred during the request.
+    ///   - response: The `AFDataResponse<Data>` that contains the response data and metadata associated with the failed request.
+    ///   - continuation: A `CheckedContinuation<Result<T, Error>, Error>` used to resume the asynchronous operation with the error result for a generic type `T`.
     private class func handleAFError<T>(_ error: AFError, response: AFDataResponse<Data>, continuation: CheckedContinuation<Result<T, Error>, Error>) {
         print("Request failed: \(error.localizedDescription)")
         
@@ -554,6 +653,17 @@ extension DiffAPIManager {
 //MARK: - Create URLRequest
 extension DiffAPIManager {
     
+    /// Creates a URL request with the specified parameters.
+    ///
+    /// This function constructs a `URLRequest` object using the provided URL string, HTTP method, headers, and timeout interval.
+    /// It validates the URL and handles any errors that occur during the creation of the request.
+    ///
+    /// - Parameters:
+    ///   - url: A string representing the URL for the request.
+    ///   - method: The HTTP method to be used for the request (e.g., GET, POST).
+    ///   - headers: A dictionary of HTTP headers to include in the request, represented as `[String: String]`.
+    ///   - timeoutInterval: The timeout interval for the request in seconds.
+    /// - Returns: A `Result` containing either the created `URLRequest` on success or an `Error` on failure.
     private class func createURLRequest(url: String, method: HTTPMethod, headers: [String: String], timeoutInterval: TimeInterval) -> Result<URLRequest, Error> {
         guard let validURL = URL(string: url) else {
             return .failure(NetworkError.invalidURL)
